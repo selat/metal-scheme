@@ -1,57 +1,10 @@
 #[macro_use]
 extern crate nom;
 
-mod helper;
-
-use nom::{IResult, digit, is_digit, multispace};
-use helper::*;
+use nom::{IResult, digit, multispace};
 use std::fmt::{self, Formatter, Display};
 use std::io::{self, Read};
 use std::str::{self, FromStr};
-
-named!(parens, delimited!(char!('('), is_not!(")"), char!(')')));
-
-// Returns the remaining input and i32
-named!(sign <&[u8], i32>, alt!( // alt! returns result of first succesfull parse
-    tag!("-") => { |_| -1 } | // tag! matches a given byte array
-    tag!("+") => { |_| 1 }
-    )
-       );
-
-macro_rules! check(
-    ($input:expr, $submac:ident!( $($args:tt)* )) => (
-
-        {
-            let mut failed = false;
-            for idx in 0..$input.len() {
-                if !$submac!($input[idx], $($args)*) {
-                    failed = true;
-                    break;
-                }
-            }
-            if failed {
-                nom::IResult::Error(nom::Err::Position(nom::ErrorKind::Custom(20),$input))
-            } else {
-                nom::IResult::Done(&b""[..], $input)
-            }
-        }
-        );
-    ($input:expr, $f:expr) => (
-        check!($input, call!($f));
-        );
-    );
-
-named!(pub take_4_digits, flat_map!(take!(4), check!(is_digit)));
-named!(pub take_2_digits, flat_map!(take!(2), check!(is_digit)));
-
-named!(positive_year  <&[u8], i32>, map!(call!(take_4_digits), buf_to_i32));
-named!(pub year <&[u8], i32>, chain!(
-    pref: opt!(sign) ~
-        y:    positive_year
-        ,
-    || {
-        pref.unwrap_or(1) * y
-    }));
 
 
 #[derive(Clone)]
@@ -144,7 +97,6 @@ impl Token {
 }
 
 fn main() {
-    println!("Hello, World");
     let mut buffer : [u8; 100] = [0; 100];
     io::stdin().read(&mut buffer).unwrap();
     let s = token(&buffer);
