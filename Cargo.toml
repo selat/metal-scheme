@@ -1,0 +1,7 @@
+[package]
+name = "metal_scheme"
+version = "0.1.0"
+authors = ["Uladzislau Paulovich <selatnick@gmail.com>"]
+
+[dependencies.nom]
+version = "1.0.0"
