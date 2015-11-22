@@ -14,6 +14,7 @@ pub enum Token {
     Float(f32),
     Bool(bool),
     Symbol(String),
+    Char(char),
     Cons{first: Box<Token>, rest: Box<Token>},
 }
 
@@ -30,6 +31,14 @@ named!(token <&[u8], Vec<Token> >, many0!(alt!(
             )
         |
     tag!("nil") => {|_| Token::Nil} |
+    tag!("#\\space") => {|_| Token::Char(' ')} |
+    tag!("#\\newline") => {|_| Token::Char('\n')} |
+
+    chain!(
+        tag!("#\\") ~
+            res: take!(1),
+        || Token::Char(str::from_utf8(res).unwrap().chars().nth(0).unwrap())
+        ) |
 
     delimited!(opt!(multispace), chain!(
         int_part: digit ~
@@ -103,6 +112,7 @@ impl Token {
             Token::Float(v) => v.to_string(),
             Token::Bool(v) => v.to_string(),
             Token::Symbol(ref v) => v.to_string(),
+            Token::Char(v) => "#\\".to_string() + &v.to_string(),
             // Token::Cons{ref first, ref rest} => "(".to_string() + &first.pretty_print() + " . "
             //     + &rest.pretty_print() + ")",
             Token::Cons{ref first, ref rest} => "(".to_string() +
