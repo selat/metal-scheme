@@ -82,6 +82,19 @@ impl Display for Token {
     }
 }
 
+fn printlist(token : &Token) -> String {
+    match *token {
+        Token::Nil => "".to_string(),
+        Token::Cons{ref first, ref rest} => {
+            match **rest {
+                Token::Nil => first.pretty_print(),
+                _ => first.pretty_print() + " " + &printlist(rest)
+            }
+        },
+        _ => {println!("List expected: {}", token); panic!()}
+    }
+}
+
 impl Token {
     pub fn pretty_print(&self) -> String {
         match *self {
@@ -90,8 +103,10 @@ impl Token {
             Token::Float(v) => v.to_string(),
             Token::Bool(v) => v.to_string(),
             Token::Symbol(ref v) => v.to_string(),
-            Token::Cons{ref first, ref rest} => "(".to_string() + &first.pretty_print() + " . "
-                + &rest.pretty_print() + ")",
+            // Token::Cons{ref first, ref rest} => "(".to_string() + &first.pretty_print() + " . "
+            //     + &rest.pretty_print() + ")",
+            Token::Cons{ref first, ref rest} => "(".to_string() +
+                &printlist(self) + ")",
         }
     }
 }
