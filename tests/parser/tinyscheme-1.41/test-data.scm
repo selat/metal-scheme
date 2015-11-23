@@ -1,0 +1,1 @@
+(+ 6.7 8)(+ 5 7)(define x (read (open-input-file "test-data.scm")))(define print-x (x p)  (if (not (null x))	  (begin (write (car x) p)			 (write "\n" p)			 (print-x (cdr x) p))))(print-x x (open-output-file "test-out.scm"))

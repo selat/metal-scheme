@@ -1,0 +1,5 @@
+(+~symbol 6.7~float 8~int)
+(+~symbol 5~int 7~int)
+(define~symbol x~symbol (read~symbol (open-input-file~symbol "test-data.scm"~string)))
+(define~symbol print-x~symbol (x~symbol p~symbol) (if~symbol (not~symbol (null~symbol x~symbol)) (begin~symbol (write~symbol (car~symbol x~symbol) p~symbol) (write~symbol "\n"~string p~symbol) (print-x~symbol (cdr~symbol x~symbol) p~symbol))))
+(print-x~symbol x~symbol (open-output-file~symbol "test-out.scm"~string))

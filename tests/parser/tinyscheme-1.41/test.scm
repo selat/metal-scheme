@@ -1,0 +1,7 @@
+(define (run-tests pin pout)
+  (let ((x (read pin)))
+	(if (not (eof-object? x))
+		(begin (write x pout)
+			   (newline pout)
+			   (run-tests pin pout)))))
+(run-tests (open-input-file "test-data.scm") (open-output-file "test-out.scm"))
