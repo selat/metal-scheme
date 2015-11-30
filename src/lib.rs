@@ -41,15 +41,19 @@ named!(pub token<&[u8], Vec<Token> >,
            chain!(tag!("#\\") ~ res: take!(1),
                   || Token::Char(str::from_utf8(res).unwrap().chars().nth(0).unwrap())) |
 
-           delimited!(opt!(multispace), chain!(
-               int_part: digit ~
-                   tag!(b".") ~
-                   float_part: digit,
-               || Token::Float(from_bytes::<f32>(int_part).unwrap() +
-                               from_bytes::<f32>(float_part).unwrap() /
-                               10.0f32.powf(float_part.len() as f32))),
-                      opt!(multispace)) |
-           complete!(map_res!(delimited!(opt!(multispace), digit, opt!(multispace)),
+           chain!(sign: sign ~
+                  int_part: digit ~
+                  tag!(b".") ~
+                  float_part: digit?,
+                  || Token::Float(
+                      sign * (from_bytes::<f32>(int_part).unwrap() +
+                              match float_part {
+                                  Some(ref part) =>
+                                      from_bytes::<f32>(part).unwrap()
+                                      / 10.0f32.powf(part.len() as f32),
+                                  None => 0f32
+                              }))) |
+           complete!(map_res!(is_a_bytes!(b"-0123456789"),
                               token_from_str)) |
 
            complete!(tag!(b"#t")) => {|_| Token::Bool(true)} |
@@ -59,6 +63,14 @@ named!(pub token<&[u8], Vec<Token> >,
            ), opt!(multispace)) ~
                      chain!(complete!(tag!(";")) ~ complete!(take_until!("\n")), || "")?,
                      || v)));
+
+pub fn sign(input:&[u8]) -> IResult<&[u8], f32> {
+    if input.len() > 0 && input[0] == '-' as u8 {
+        Done(&input[1..], -1.0f32)
+    } else {
+        Done(input, 1.0f32)
+   }
+}
 
 pub fn identifier(input:&[u8]) -> IResult<&[u8], &[u8]> {
     for (idx, item) in input.iter().enumerate() {
@@ -116,10 +128,10 @@ impl Token {
     pub fn pretty_print(&self) -> String {
         match *self {
             Token::Nil => "nil".to_string(),
-            Token::Int(v) => v.to_string(),
-            Token::Float(v) => v.to_string(),
+            Token::Int(v) => v.to_string()+"~int",
+            Token::Float(v) => v.to_string() + "~float",
             Token::Bool(v) => v.to_string(),
-            Token::Symbol(ref v) => v.to_string(),
+            Token::Symbol(ref v) => v.to_string()+"~symbol",
             Token::Char(v) => "#\\".to_string() + &v.to_string(),
             Token::Cons{ref first, ref rest} => "(".to_string() +
                 &printlist(self) + ")",
