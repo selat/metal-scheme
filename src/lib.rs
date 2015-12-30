@@ -53,7 +53,7 @@ named!(pub token<&[u8], Vec<Token> >,
                                       / 10.0f32.powf(part.len() as f32),
                                   None => 0f32
                               }))) |
-           complete!(map_res!(is_a_bytes!(b"-0123456789"),
+           complete!(map_res!(is_a_bytes!(b"-0123456789"), // TODO: don't match strings like "-334-3434"
                               token_from_str)) |
 
            complete!(tag!(b"#t")) => {|_| Token::Bool(true)} |
@@ -128,10 +128,10 @@ impl Token {
     pub fn pretty_print(&self) -> String {
         match *self {
             Token::Nil => "nil".to_string(),
-            Token::Int(v) => v.to_string()+"~int",
-            Token::Float(v) => v.to_string() + "~float",
+            Token::Int(v) => v.to_string(),
+            Token::Float(v) => v.to_string(),
             Token::Bool(v) => v.to_string(),
-            Token::Symbol(ref v) => v.to_string()+"~symbol",
+            Token::Symbol(ref v) => v.to_string(),
             Token::Char(v) => "#\\".to_string() + &v.to_string(),
             Token::Cons{ref first, ref rest} => "(".to_string() +
                 &printlist(self) + ")",
