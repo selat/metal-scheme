@@ -84,15 +84,15 @@ markdown_out.write('Scheme Lisp interpreter written in Rust.\n\n')
 markdown_out.write('Overall, ' + '%.2f' %(float(implemented_num) / float(all_functions.__len__()) * 100.0)
                    + '% of r5rs\'s standard functions are implemented.\n\n')
 markdown_out.write('| Function | Implemented | Tests passing|\n')
-markdown_out.write('| :- | :-: | :-: |\n')
+markdown_out.write('| :----- | :-----: | :-----: |\n')
 for x in all_functions:
     markdown_out.write('|' + x + '|')
     if x in implemented_functions:
-        markdown_out.write(' + |')
+        markdown_out.write(' **+** |')
     else:
-        markdown_out.write(' - |')
+        markdown_out.write(' **-** |')
     if x in implemented_functions:
-        markdown_out.write(' +  |')
+        markdown_out.write(' **+**  |')
     else:
-        markdown_out.write(' - |')
+        markdown_out.write(' **-** |')
     markdown_out.write('\n')
