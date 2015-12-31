@@ -6,6 +6,9 @@ use nom::Err::*;
 use nom::IResult::*;
 use std::fmt::{self, Formatter, Display};
 use std::str::{self, FromStr};
+use std::collections::HashMap;
+use std::rc::Rc;
+
 #[derive(Clone)]
 pub enum Token {
     Nil,
@@ -124,6 +127,7 @@ fn printlist(token : &Token) -> String {
     }
 }
 
+
 impl Token {
     pub fn pretty_print(&self) -> String {
         match *self {
@@ -137,4 +141,207 @@ impl Token {
                 &printlist(self) + ")",
         }
     }
+}
+
+pub struct Environment {
+    symbols_table: HashMap<String, Rc<Expression>>,
+}
+
+#[derive(Debug)]
+pub struct RuntimeError {
+    message: String,
+}
+
+impl fmt::Display for RuntimeError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "RuntimeError: {}", self.message)
+    }
+}
+
+impl Environment {
+    fn create_symbols_map() -> HashMap<String, Rc<Expression>> {
+        let mut symbols_map = HashMap::<String, Rc<Expression>>::new();
+        symbols_map.insert("+".to_string(), Rc::new(Expression::NativeFunction(Rc::new(op_add))));
+        return symbols_map;
+    }
+    pub fn new() -> Environment {
+        Environment {
+            symbols_table: Environment::create_symbols_map(),
+        }
+    }
+    // Symbols table lives as long as the environemnt itself
+    pub fn lookup_symbol(&self, name: &String) -> Result<Rc<Expression>, RuntimeError> {
+        Ok(self.symbols_table.get(name).unwrap().clone())
+    }
+    // 1. Environment and expression are completely different things with potentially different lifetimes
+    pub fn eval(&mut self, token: Rc<Expression>) -> Result<Rc<Expression>, RuntimeError> {
+        match *token {
+            Expression::Nil => Ok(token.clone()),
+            Expression::Int(_) => Ok(token.clone()),
+            Expression::Float(_) => Ok(token.clone()),
+            Expression::Bool(_) => Ok(token.clone()),
+            Expression::Symbol(ref v) => self.lookup_symbol(v),
+            Expression::Char(_) => Ok(token.clone()),
+            //            Expression::NativeFunction(ref v) => v(
+            // 1. Evaluate "first"
+            // 2. Evaluate all items in "rest" and save the result in a vector of arguments
+            // 3. Call evaluated "first" passing the vector of arguments
+            Expression::Cons{ref first, ref rest} => {
+                let mut arguments = Vec::<Rc<Expression>>::new();
+                let mut cur = (*rest).clone();
+                loop {
+                    let next : Rc<Expression>;
+                    match *cur {
+                        Expression::Nil => break,
+                        Expression::Cons{ref first, ref rest} => {
+                            arguments.push(self.eval(first.clone()).unwrap());
+                            next = (*rest).clone();
+                        },
+                        _ => panic!("List expected"),
+                    }
+                    cur = next;
+                }
+                // If it's a closure, we'll have to change it's environment, therefore variable is mutable
+                let mut first_evaluated = self.eval(first.clone()).unwrap();
+                match *first_evaluated {
+                    Expression::NativeFunction(ref v) => Ok(v(arguments)),
+                    _ => panic!("Error!"),
+                }
+            },
+
+            _ => panic!("Unexpected token")
+        }
+    }
+}
+
+#[derive(Clone)]
+pub enum Expression {
+    Nil,
+    Int(i32),
+    Float(f32),
+    Bool(bool),
+    Symbol(String),
+    Char(char),
+    NativeFunction(Rc<Fn(Vec<Rc<Expression>>)->Rc<Expression>>),
+    // NativeMacro(Rc<Fn(Rc<Expression>)->Rc<Expression>>),
+    Cons{first: Rc<Expression>, rest: Rc<Expression>},
+}
+
+impl PartialEq for Expression {
+    fn eq(&self, other: &Expression) -> bool {
+        match (self.clone(), other.clone()) {
+            (Expression::Nil, Expression::Nil) => true,
+            (Expression::Int(v1), Expression::Int(v2)) => v1 == v2,
+            (Expression::Float(v1), Expression::Float(v2)) => v1 == v2,
+            (Expression::Bool(v1), Expression::Bool(v2)) => v1 == v2,
+            (Expression::Symbol(v1), Expression::Symbol(v2)) => v1 == v2,
+            (Expression::Char(v1), Expression::Char(v2)) => v1 == v2,
+            _ => panic!(),
+        }
+    }
+}
+
+fn printliste(token : &Expression) -> String {
+    match *token {
+        Expression::Nil => "".to_string(),
+        Expression::Cons{ref first, ref rest} => {
+            match **rest {
+                Expression::Nil => first.pretty_print(),
+                _ => first.pretty_print() + " " + &printliste(rest)
+            }
+        },
+        _ => {println!("List expected: {}", token); panic!()}
+    }
+}
+
+impl Expression {
+    pub fn new(exp: &Token) -> Expression {
+        match *exp {
+            Token::Nil => Expression::Nil,
+            Token::Int(v) => Expression::Int(v),
+            Token::Float(v) => Expression::Float(v),
+            Token::Bool(v) => Expression::Bool(v),
+            Token::Symbol(ref v) => Expression::Symbol(v.to_string()),
+            Token::Char(v) => Expression::Char(v),
+            Token::Cons{ref first, ref rest} =>
+                Expression::Cons{
+                    first: Rc::new(Expression::new(&first)),
+                    rest: Rc::new(Expression::new(&rest))},
+        }
+    }
+    pub fn pretty_print(&self) -> String {
+        match *self {
+            Expression::Nil => "nil".to_string(),
+            Expression::Int(v) => v.to_string(),
+            Expression::Float(v) => v.to_string(),
+            Expression::Bool(v) => v.to_string(),
+            Expression::Symbol(ref v) => v.to_string(),
+            Expression::Char(v) => v.to_string(),
+            // Expression::NativeMacro(ref v) => "#<native macro>".to_string(),
+            Expression::NativeFunction(ref v) => "#<native function>".to_string(),
+            Expression::Cons{ref first, ref rest} => "(".to_string() +
+                &printliste(self) + ")",
+        }
+    }
+}
+
+impl Display for Expression {
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+        write!(fmt, "{}", self.pretty_print())
+    }
+}
+
+fn op_add(args: Vec<Rc<Expression>>) -> Rc<Expression> {
+    if args.len() == 0 {
+        panic!("\"+\" function requires non-empty list of arguments");
+    }
+    let mut res = Expression::Int(0);
+    for a in args {
+        res = match ((*a).clone(), res) {
+            (Expression::Int(v1), Expression::Int(v2)) => {
+                Expression::Int(v1 + v2)
+            },
+            (Expression::Int(v1), Expression::Float(v2)) => {
+                Expression::Float(v1 as f32 + v2)
+            },
+            (Expression::Float(v1), Expression::Int(v2)) => {
+                Expression::Float(v1 + v2 as f32)
+            },
+            (Expression::Float(v1), Expression::Float(v2)) => {
+                Expression::Float(v1 + v2)
+            },
+            (Expression::Int(_), _) => {
+                panic!("Shouldn't happen")
+            },
+            (Expression::Float(_), _) => {
+                panic!("Shouldn't happen")
+            },
+            _ => panic!("Number expected"),
+        };
+    }
+    Rc::new(res)
+}
+
+fn run_test(test: &'static str, expected_res: Expression) {
+    let test1 = test.as_bytes();
+    let s = token(&test1);
+    match s {
+        IResult::Done(_, o) => {
+            assert!(o.len() == 1);
+            let mut env = Environment::new();
+            let res = env.eval(Rc::new(Expression::new(&o[0])));
+            match res {
+                Ok(v) => assert!(*v == expected_res),
+                _ => panic!(),
+            }
+        },
+        _ => panic!("Failed to parse! {}", str::from_utf8(&test1).unwrap()),
+    }
+}
+
+#[test]
+fn test_op_add() {
+    run_test("(+ 2 3)", Expression::Int(5));
+    run_test("(+ 10)", Expression::Int(10));
+    run_test("(+ 1.45 90)", Expression::Float(91.45));
 }
