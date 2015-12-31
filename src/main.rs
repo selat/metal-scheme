@@ -7,8 +7,19 @@ use std::collections::{HashMap};
 use std::fmt::{self,Display};
 use nom::{IResult};
 use std::rc::Rc;
+use std::env;
 
 fn main() {
+    for argument in env::args() {
+        if argument == "--list-functions" {
+            let env = metal_scheme::Environment::new();
+            let symbols_table = env.symbols_table();
+            for t in symbols_table {
+                println!("{}", t.0)
+            }
+            return;
+        }
+    }
     let mut buffer = String::new();
     io::stdin().read_to_string(&mut buffer).unwrap();
     let s = metal_scheme::token(buffer.as_bytes());

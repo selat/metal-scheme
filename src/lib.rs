@@ -159,6 +159,9 @@ impl fmt::Display for RuntimeError {
 }
 
 impl Environment {
+    pub fn symbols_table(&self) -> &HashMap<String, Rc<Expression>> {
+        &self.symbols_table
+    }
     fn create_symbols_map() -> HashMap<String, Rc<Expression>> {
         let mut symbols_map = HashMap::<String, Rc<Expression>>::new();
         symbols_map.insert("+".to_string(), Rc::new(Expression::NativeFunction(Rc::new(op_add))));
