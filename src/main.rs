@@ -3,8 +3,6 @@ extern crate nom;
 extern crate metal_scheme;
 
 use std::io::{self, Read};
-use std::collections::{HashMap};
-use std::fmt::{self,Display};
 use nom::{IResult};
 use std::rc::Rc;
 use std::env;

@@ -36,6 +36,34 @@ pub fn op_add(args: Vec<Rc<Expression>>) -> Rc<Expression> {
     Rc::new(res)
 }
 
+fn map_op(args: Vec<Rc<Expression>>) -> Rc<Expression> {
+    let mut res = Expression::Int(0);
+    for a in args {
+        res = match ((*a).clone(), res) {
+            (Expression::Int(v1), Expression::Int(v2)) => {
+                Expression::Int(v1 + v2)
+            },
+            (Expression::Int(v1), Expression::Float(v2)) => {
+                Expression::Float(v1 as f32 + v2)
+            },
+            (Expression::Float(v1), Expression::Int(v2)) => {
+                Expression::Float(v1 + v2 as f32)
+            },
+            (Expression::Float(v1), Expression::Float(v2)) => {
+                Expression::Float(v1 + v2)
+            },
+            (Expression::Int(_), _) => {
+                panic!("Shouldn't happen")
+            },
+            (Expression::Float(_), _) => {
+                panic!("Shouldn't happen")
+            },
+            _ => panic!("Number expected"),
+        };
+    }
+    Rc::new(res)
+}
+
 fn run_test(test: &'static str, expected_res: Expression) {
     let test1 = test.as_bytes();
     let s = token(&test1);

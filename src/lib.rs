@@ -9,6 +9,7 @@ use std::fmt::{self, Formatter, Display};
 use std::str::{self, FromStr};
 use std::collections::HashMap;
 use std::rc::Rc;
+use num::complex;
 
 mod arithmetic;
 
@@ -17,6 +18,7 @@ pub enum Token {
     Nil,
     Int(i32),
     Float(f32),
+    Complex(complex::Complex32),
     Bool(bool),
     Symbol(String),
     Char(char),
@@ -36,6 +38,46 @@ pub fn token_from_str(s : &[u8]) -> Result<Token, &str> {
     }
 }
 
+pub fn float_token(sign: f32, int_part: &[u8], float_part: Option<&[u8]>) -> Token {
+    Token::Float(
+        sign * (from_bytes::<f32>(int_part).unwrap() +
+                match float_part {
+                    Some(ref part) =>
+                        from_bytes::<f32>(part).unwrap()
+                        / 10.0f32.powf(part.len() as f32),
+                    None => 0f32
+                }))
+}
+
+named!(real<&[u8], Token>,
+       chain!(sign: sign ~
+              int_part: digit ~
+              tag!(b".") ~
+              float_part: digit?,
+              || float_token(sign, int_part, float_part)));
+
+
+named!(real_or_int<&[u8], Token>,
+       chain!(sign: sign ~
+              int_part: digit ~
+              chain!(tag!(b".") ~
+                     float_part: digit,
+                     || float_part)? ~
+              float_part: digit?,
+              || float_token(sign, int_part, float_part)));
+
+named!(real_or_int_with_space<&[u8], Token>,
+       chain!(multispace? ~
+              sign: sign ~
+              multispace? ~
+              int_part: digit ~
+              chain!(tag!(b".") ~
+                     float_part: digit,
+                     || float_part)? ~
+              float_part: digit?,
+              || float_token(sign, int_part, float_part)));
+
+
 named!(pub token<&[u8], Vec<Token> >,
        many1!(chain!(v:delimited!(opt!(multispace), alt!(
            complete!(delimited!(tag!("("), opt!(multispace), tag!(")"))) => {|_| Token::Nil} |
@@ -47,18 +89,16 @@ named!(pub token<&[u8], Vec<Token> >,
            chain!(tag!("#\\") ~ res: take!(1),
                   || Token::Char(str::from_utf8(res).unwrap().chars().nth(0).unwrap())) |
 
-           chain!(sign: sign ~
-                  int_part: digit ~
-                  tag!(b".") ~
-                  float_part: digit?,
-                  || Token::Float(
-                      sign * (from_bytes::<f32>(int_part).unwrap() +
-                              match float_part {
-                                  Some(ref part) =>
-                                      from_bytes::<f32>(part).unwrap()
-                                      / 10.0f32.powf(part.len() as f32),
-                                  None => 0f32
-                              }))) |
+           chain!(real_part: real_or_int ~
+                  imaginary_part: real_or_int_with_space ~
+                  tag!("i"),
+                  || match (real_part, imaginary_part) {
+                      (Token::Float(v1), Token::Float(v2)) =>
+                          Token::Complex(complex::Complex32::new(v1, v2)),
+                      _ => panic!("Expected floating parts")}) |
+
+           real |
+
            complete!(map_res!(is_a_bytes!(b"-0123456789"), // TODO: don't match strings like "-334-3434"
                               token_from_str)) |
 
@@ -73,9 +113,12 @@ named!(pub token<&[u8], Vec<Token> >,
 pub fn sign(input:&[u8]) -> IResult<&[u8], f32> {
     if input.len() > 0 && input[0] == '-' as u8 {
         Done(&input[1..], -1.0f32)
+    } else if input.len() > 0 && input[0] == '+' as u8 {
+        println!("whooo!");
+        Done(&input[1..], 1.0f32)
     } else {
         Done(input, 1.0f32)
-   }
+    }
 }
 
 pub fn identifier(input:&[u8]) -> IResult<&[u8], &[u8]> {
@@ -137,10 +180,11 @@ impl Token {
             Token::Nil => "nil".to_string(),
             Token::Int(v) => v.to_string(),
             Token::Float(v) => v.to_string(),
+            Token::Complex(v) => v.to_string(),
             Token::Bool(v) => v.to_string(),
             Token::Symbol(ref v) => v.to_string(),
             Token::Char(v) => "#\\".to_string() + &v.to_string(),
-            Token::Cons{ref first, ref rest} => "(".to_string() +
+            Token::Cons{..} => "(".to_string() +
                 &printlist(self) + ")",
         }
     }
@@ -185,6 +229,7 @@ impl Environment {
             Expression::Nil => Ok(token.clone()),
             Expression::Int(_) => Ok(token.clone()),
             Expression::Float(_) => Ok(token.clone()),
+            Expression::Complex(_) => Ok(token.clone()),
             Expression::Bool(_) => Ok(token.clone()),
             Expression::Symbol(ref v) => self.lookup_symbol(v),
             Expression::Char(_) => Ok(token.clone()),
@@ -208,7 +253,7 @@ impl Environment {
                     cur = next;
                 }
                 // If it's a closure, we'll have to change it's environment, therefore variable is mutable
-                let mut first_evaluated = self.eval(first.clone()).unwrap();
+                let first_evaluated = self.eval(first.clone()).unwrap();
                 match *first_evaluated {
                     Expression::NativeFunction(ref v) => Ok(v(arguments)),
                     _ => panic!("Error!"),
@@ -225,6 +270,7 @@ pub enum Expression {
     Nil,
     Int(i32),
     Float(f32),
+    Complex(complex::Complex32),
     Bool(bool),
     Symbol(String),
     Char(char),
@@ -266,6 +312,7 @@ impl Expression {
             Token::Nil => Expression::Nil,
             Token::Int(v) => Expression::Int(v),
             Token::Float(v) => Expression::Float(v),
+            Token::Complex(v) => Expression::Complex(v),
             Token::Bool(v) => Expression::Bool(v),
             Token::Symbol(ref v) => Expression::Symbol(v.to_string()),
             Token::Char(v) => Expression::Char(v),
@@ -280,12 +327,13 @@ impl Expression {
             Expression::Nil => "nil".to_string(),
             Expression::Int(v) => v.to_string(),
             Expression::Float(v) => v.to_string(),
+            Expression::Complex(v) => v.to_string(),
             Expression::Bool(v) => v.to_string(),
             Expression::Symbol(ref v) => v.to_string(),
             Expression::Char(v) => v.to_string(),
             // Expression::NativeMacro(ref v) => "#<native macro>".to_string(),
-            Expression::NativeFunction(ref v) => "#<native function>".to_string(),
-            Expression::Cons{ref first, ref rest} => "(".to_string() +
+            Expression::NativeFunction(..) => "#<native function>".to_string(),
+            Expression::Cons{..} => "(".to_string() +
                 &printliste(self) + ")",
         }
     }
