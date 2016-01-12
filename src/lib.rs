@@ -60,23 +60,16 @@ named!(real<&[u8], Token>,
 named!(real_or_int<&[u8], Token>,
        chain!(sign: sign ~
               int_part: digit ~
-              chain!(tag!(b".") ~
-                     float_part: digit,
-                     || float_part)? ~
-              float_part: digit?,
+              float_part: chain!(tag!(b".") ~
+                                 float_part: digit,
+                                 || float_part)?,
               || float_token(sign, int_part, float_part)));
-
-named!(real_or_int_with_space<&[u8], Token>,
-       chain!(multispace? ~
-              sign: sign ~
-              multispace? ~
-              int_part: digit ~
-              chain!(tag!(b".") ~
-                     float_part: digit,
-                     || float_part)? ~
-              float_part: digit?,
-              || float_token(sign, int_part, float_part)));
-
+named!(unsigned_real_or_int<&[u8], Token>,
+       chain!(int_part: digit ~
+              float_part: chain!(tag!(b".") ~
+                                 float_part: digit,
+                                 || float_part)?,
+              || float_token(1f32, int_part, float_part)));
 
 named!(pub token<&[u8], Vec<Token> >,
        many1!(chain!(v:delimited!(opt!(multispace), alt!(
@@ -89,18 +82,33 @@ named!(pub token<&[u8], Vec<Token> >,
            chain!(tag!("#\\") ~ res: take!(1),
                   || Token::Char(str::from_utf8(res).unwrap().chars().nth(0).unwrap())) |
 
+           // We have both imaginary and real parts of a complex number
            chain!(real_part: real_or_int ~
-                  imaginary_part: real_or_int_with_space ~
+                  imaginary_sign: mandatory_sign ~
+                  imaginary_part: unsigned_real_or_int? ~
                   tag!("i"),
                   || match (real_part, imaginary_part) {
-                      (Token::Float(v1), Token::Float(v2)) =>
-                          Token::Complex(complex::Complex32::new(v1, v2)),
+                      (Token::Float(re), Some(Token::Float(im))) =>
+                          Token::Complex(complex::Complex32::new(re, imaginary_sign * im)),
+                      (Token::Float(re), None) =>
+                          Token::Complex(complex::Complex32::new(re, imaginary_sign)),
+                      _ => panic!("Expected floating parts")}) |
+
+           // We have imaginary part only
+           chain!(imaginary_sign: mandatory_sign ~
+                  imaginary_part: unsigned_real_or_int? ~
+                  tag!("i"),
+                  || match imaginary_part {
+                      Some(Token::Float(im)) =>
+                          Token::Complex(complex::Complex32::new(0f32, imaginary_sign * im)),
+                      None =>
+                          Token::Complex(complex::Complex32::new(0f32, imaginary_sign)),
                       _ => panic!("Expected floating parts")}) |
 
            real |
 
-           complete!(map_res!(is_a_bytes!(b"-0123456789"), // TODO: don't match strings like "-334-3434"
-                              token_from_str)) |
+           chain!(sign: sign ~ num: digit,
+                  || Token::Int((sign as i32) * from_bytes::<i32>(num).unwrap())) |
 
            complete!(tag!(b"#t")) => {|_| Token::Bool(true)} |
            complete!(tag!(b"#f")) => {|_| Token::Bool(false)} |
@@ -114,10 +122,19 @@ pub fn sign(input:&[u8]) -> IResult<&[u8], f32> {
     if input.len() > 0 && input[0] == '-' as u8 {
         Done(&input[1..], -1.0f32)
     } else if input.len() > 0 && input[0] == '+' as u8 {
-        println!("whooo!");
         Done(&input[1..], 1.0f32)
     } else {
         Done(input, 1.0f32)
+    }
+}
+
+pub fn mandatory_sign(input:&[u8]) -> IResult<&[u8], f32> {
+    if input.len() > 0 && input[0] == '-' as u8 {
+        Done(&input[1..], -1.0f32)
+    } else if input.len() > 0 && input[0] == '+' as u8 {
+        Done(&input[1..], 1.0f32)
+    } else {
+        Error(Position(ErrorKind::MultiSpace, input))
     }
 }
 
@@ -212,6 +229,11 @@ impl Environment {
     fn create_symbols_map() -> HashMap<String, Rc<Expression>> {
         let mut symbols_map = HashMap::<String, Rc<Expression>>::new();
         symbols_map.insert("+".to_string(), Rc::new(Expression::NativeFunction(Rc::new(arithmetic::op_add))));
+        symbols_map.insert("-".to_string(), Rc::new(Expression::NativeFunction(Rc::new(arithmetic::op_sub))));
+        symbols_map.insert("*".to_string(), Rc::new(Expression::NativeFunction(Rc::new(arithmetic::op_mul))));
+        symbols_map.insert("/".to_string(), Rc::new(Expression::NativeFunction(Rc::new(arithmetic::op_div))));
+        symbols_map.insert("min".to_string(), Rc::new(Expression::NativeFunction(Rc::new(arithmetic::op_min))));
+        symbols_map.insert("max".to_string(), Rc::new(Expression::NativeFunction(Rc::new(arithmetic::op_max))));
         return symbols_map;
     }
     pub fn new() -> Environment {
@@ -285,6 +307,7 @@ impl PartialEq for Expression {
             (Expression::Nil, Expression::Nil) => true,
             (Expression::Int(v1), Expression::Int(v2)) => v1 == v2,
             (Expression::Float(v1), Expression::Float(v2)) => v1 == v2,
+            (Expression::Complex(v1), Expression::Complex(v2)) => v1 == v2,
             (Expression::Bool(v1), Expression::Bool(v2)) => v1 == v2,
             (Expression::Symbol(v1), Expression::Symbol(v2)) => v1 == v2,
             (Expression::Char(v1), Expression::Char(v2)) => v1 == v2,
