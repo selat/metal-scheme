@@ -1,6 +1,6 @@
 Scheme Lisp interpreter written in Rust.
 
-Overall, 2.50% of r5rs's standard functions are implemented.
+Overall, 4.58% of r5rs's standard functions are implemented.
 
 | Function | Implemented | Tests passing|
 | :----- | :-----: | :-----: |
@@ -8,12 +8,12 @@ Overall, 2.50% of r5rs's standard functions are implemented.
 |+| **+** | **+**  |
 |-| **+** | **+**  |
 |/| **+** | **+**  |
-|<| **-** | **-** |
-|<=| **-** | **-** |
-|=| **-** | **-** |
+|<| **+** | **+**  |
+|<=| **+** | **+**  |
+|=| **+** | **+**  |
 |=>| **-** | **-** |
-|>| **-** | **-** |
-|>=| **-** | **-** |
+|>| **+** | **+**  |
+|>=| **+** | **+**  |
 |abs| **-** | **-** |
 |acos| **-** | **-** |
 |and| **-** | **-** |

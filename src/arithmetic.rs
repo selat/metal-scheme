@@ -235,11 +235,11 @@ macro_rules! map_comparsion_op {
     }
 }
 
+map_comparsion_op!(op_eq, eq);
 map_comparsion_op!(op_lt, lt);
 map_comparsion_op!(op_le, le);
 map_comparsion_op!(op_gt, gt);
 map_comparsion_op!(op_ge, ge);
-map_comparsion_op!(op_eq, eq);
 
 
 #[cfg(test)]
@@ -353,5 +353,59 @@ mod tests {
         // Real max
         run_test("(max 1.45 90)", Expression::Float(90f32));
         run_test("(max 0.5 -0.56 -0.559999 0.4999999)", Expression::Float(0.5f32));
+    }
+
+    #[test]
+    fn test_op_eq() {
+        run_test("(= 1 1)", Expression::Bool(true));
+        run_test("(= (+ 2 2) 5)", Expression::Bool(false));
+
+        run_test("(= 4.55555 4.55555)", Expression::Bool(true));
+        run_test("(= 4.55556 4.55555)", Expression::Bool(false));
+    }
+
+    #[test]
+    fn test_op_lt() {
+        run_test("(< 1 2)", Expression::Bool(true));
+        run_test("(< 1 1)", Expression::Bool(false));
+        run_test("(< (+ 2 2) 5)", Expression::Bool(true));
+
+        run_test("(< 4.55555 4.55555)", Expression::Bool(false));
+        run_test("(< 4.55555 4.55556)", Expression::Bool(true));
+    }
+
+    #[test]
+    fn test_op_le() {
+        run_test("(<= 1 2)", Expression::Bool(true));
+        run_test("(<= (+ 2 2) 5)", Expression::Bool(true));
+        run_test("(<= (- -5) (+ (* 2 2) 1))", Expression::Bool(true));
+
+        run_test("(<= 4.55555 4.55556)", Expression::Bool(true));
+        run_test("(<= 4.55555 4.55555)", Expression::Bool(true));
+        run_test("(<= 4.55556 4.55555)", Expression::Bool(false));
+    }
+
+    #[test]
+    fn test_op_gt() {
+        run_test("(> 1 2)", Expression::Bool(false));
+        run_test("(> 2 1)", Expression::Bool(true));
+        run_test("(> 5 (+ 2 2))", Expression::Bool(true));
+        run_test("(> (- -5) (+ (* 2 2) 1))", Expression::Bool(false));
+
+        run_test("(> 4.55555 4.55556)", Expression::Bool(false));
+        run_test("(> 4.55555 4.55555)", Expression::Bool(false));
+        run_test("(> 4.55556 4.55555)", Expression::Bool(true));
+    }
+
+    #[test]
+    fn test_op_ge() {
+        run_test("(>= 1 2)", Expression::Bool(false));
+        run_test("(>= 2 1)", Expression::Bool(true));
+        run_test("(>= 5 (+ 2 2))", Expression::Bool(true));
+        run_test("(>= (- -5) (+ (* 2 2) 1))", Expression::Bool(true));
+
+        run_test("(>= 4.55555 4.55556)", Expression::Bool(false));
+        run_test("(>= 4.55555 4.55555)", Expression::Bool(true));
+        run_test("(>= 4.55556 4.55555)", Expression::Bool(true));
     }
 }
