@@ -234,6 +234,12 @@ impl Environment {
         symbols_map.insert("/".to_string(), Rc::new(Expression::NativeFunction(Rc::new(arithmetic::op_div))));
         symbols_map.insert("min".to_string(), Rc::new(Expression::NativeFunction(Rc::new(arithmetic::op_min))));
         symbols_map.insert("max".to_string(), Rc::new(Expression::NativeFunction(Rc::new(arithmetic::op_max))));
+        symbols_map.insert("max".to_string(), Rc::new(Expression::NativeFunction(Rc::new(arithmetic::op_max))));
+        symbols_map.insert("=".to_string(), Rc::new(Expression::NativeFunction(Rc::new(arithmetic::op_eq))));
+        symbols_map.insert("<".to_string(), Rc::new(Expression::NativeFunction(Rc::new(arithmetic::op_lt))));
+        symbols_map.insert("<=".to_string(), Rc::new(Expression::NativeFunction(Rc::new(arithmetic::op_le))));
+        symbols_map.insert(">".to_string(), Rc::new(Expression::NativeFunction(Rc::new(arithmetic::op_gt))));
+        symbols_map.insert(">=".to_string(), Rc::new(Expression::NativeFunction(Rc::new(arithmetic::op_ge))));
         return symbols_map;
     }
     pub fn new() -> Environment {

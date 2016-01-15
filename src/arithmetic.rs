@@ -186,6 +186,62 @@ pub fn op_div(args: Vec<Rc<Expression>>) -> Rc<Expression> {
 }
 
 
+macro_rules! map_comparsion_op {
+    ($name: ident, $op: ident) => {
+        pub fn $name(args: Vec<Rc<Expression>>) -> Rc<Expression> {
+            if args.len() <= 1 {
+                panic!("This function requires at least two arguments");
+            }
+            let mut last = (*args[0]).clone();
+            let mut id = 0;
+            for a in args {
+                if id == 0 {
+                    id = 1;
+                    continue;
+                }
+                match (last, (*a).clone()) {
+                    (Expression::Int(v1), Expression::Int(v2)) => {
+                        if !v1.$op(&v2) {
+                            return Rc::new(Expression::Bool(false));
+                        }
+                    },
+                    (Expression::Int(v1), Expression::Float(v2)) => {
+                        if !(v1 as f32).$op(&v2) {
+                            return Rc::new(Expression::Bool(false));
+                        }
+                    },
+                    (Expression::Float(v1), Expression::Int(v2)) => {
+                        if !v1.$op(&(v2 as f32)) {
+                            return Rc::new(Expression::Bool(false));
+                        }
+                    },
+                    (Expression::Float(v1), Expression::Float(v2)) => {
+                        if !v1.$op(&v2) {
+                            return Rc::new(Expression::Bool(false));
+                        }
+                    },
+                    (_, Expression::Complex(_)) => {
+                        panic!("Can't compare complex numbers");
+                    },
+                    (Expression::Complex(_), _) => {
+                        panic!("Can't compare complex numbers");
+                    },
+                    _ => panic!("Number expected"),
+                };
+                last = (*a).clone();
+            }
+            return Rc::new(Expression::Bool(true));
+        }
+    }
+}
+
+map_comparsion_op!(op_lt, lt);
+map_comparsion_op!(op_le, le);
+map_comparsion_op!(op_gt, gt);
+map_comparsion_op!(op_ge, ge);
+map_comparsion_op!(op_eq, eq);
+
+
 #[cfg(test)]
 mod tests {
     use super::{op_add,op_sub,op_mul};
